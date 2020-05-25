@@ -1,0 +1,248 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta charset="UTF-8">
+    <title>Title</title>
+    {#    <link rel="stylesheet" href="{% static 'paper/examples/css/style.css' %}">#}
+    <script type="text/javascript" src="{% static 'paper/dist/paper-full.js' %}"></script>
+    <script type="text/javascript">
+        paper.install(window);
+
+        class Section {
+            constructor(video, over, select) {
+                this.video = video;
+                this.over = over;
+                this.select = select;
+                this.select_ctx = select.getContext('2d');
+                this.persons = [];
+            }
+        }
+
+        class Person {
+            constructor(cluster, box) {
+                this.id = cluster;
+                this.box = box;
+                this.rect = null;
+                this.intersects = [];
+            }
+        }
+
+        window.onload = function () {
+            let zoom_x, zoom_y;
+            let sick_ids = new Set();
+            let sickness_dict = {};
+            [...Array(10).keys()].map(i => sickness_dict[i] = 0);
+
+            let cam_displays = Array.from(document.getElementsByClassName('cam-display')).map(o => new Section(o.querySelector('.video'), o.querySelector('.over'), o.querySelector('.select')));
+            let temp_ctx = document.getElementById('temp-canvas').getContext('2d');
+
+            for (const [cam_num, section] of cam_displays.entries()) {
+                let scope = new paper.PaperScope();
+                scope.setup(section.over);
+
+                section.select.onclick = function(event) {
+                    sick_ids.add(Math.floor((event.clientX - this.getBoundingClientRect().x) / 0.24 / section.video.clientHeight));
+                };
+
+                scope.view.onFrame = function(event) {
+                    section.select_ctx.clearRect(0, 0, 300, 150);
+                    for (let person of section.persons) {
+                        person.rect.remove();
+                        if (person.intersects.length) person.intersects.map(i => i.remove());
+                    }
+                    section.persons = [];
+
+                    let frame_num = Math.round(section.video.currentTime * 25 / 10);
+                    let frame_boxes = data_boxes[cam_num][frame_num];
+                    let frame_clusters = data_clusters[cam_num][frame_num];
+                    {#console.log(frame_num, frame_boxes, frame_clusters);#}
+
+                    for (const [j, noop] of frame_boxes.entries()) {
+                        let person = new Person(frame_clusters[j], frame_boxes[j]);
+                        zoom_x = section.video.clientWidth / section.video.videoWidth;
+                        zoom_y = section.video.clientHeight / section.video.videoHeight;
+
+                        person.rect =
+                            new paper.Path.Rectangle(
+                                new paper.Point(person.box[0] * zoom_x, person.box[1] * zoom_y),
+                                new paper.Point(person.box[2] * zoom_x, person.box[3] * zoom_y)
+                            );
+
+                        temp_ctx.drawImage(section.video, 0, 0, 300, 150);
+                        {#console.log(person.box[0] / zoom_x, person.box[1] / zoom_y, (person.box[2]-person.box[0]) / zoom_x, (person.box[3]-person.box[1]) / zoom_y);#}
+
+                        zoom_x = 300 / section.video.videoWidth;
+                        zoom_y = 150 / section.video.videoHeight;
+
+                        section.select_ctx.putImageData(
+                            temp_ctx.getImageData(
+                                person.box[0] * zoom_x,
+                                person.box[1] * zoom_y,
+                                Math.min((person.box[2] - person.box[0]) * zoom_x, 70 * zoom_x),
+                                (person.box[3] - person.box[1]) * zoom_y
+                            ),
+                            person.id * 70 * zoom_x, 0
+                        );
+                        section.select_ctx.beginPath();
+                        section.select_ctx.moveTo(person.id* 70 * zoom_x, 0);
+                        section.select_ctx.lineTo(person.id * 70 * zoom_x, 150);
+                        section.select_ctx.stroke();
+
+                        section.select_ctx.beginPath();
+                        section.select_ctx.moveTo((person.id + 1) * 70 * zoom_x, 0);
+                        section.select_ctx.lineTo((person.id + 1) * 70 * zoom_x, 150);
+                        section.select_ctx.stroke();
+
+                        person.rect.strokeWidth = 4;
+                        person.rect.strokeColor = color_cycle[frame_clusters[j]];
+
+                        if (sick_ids.has(person.id)) {
+                            person.rect.fillColor = 'red';
+                            person.rect.opacity = 0.3;
+                        }
+
+                        section.persons.push(person);
+                    }
+
+                    for (let [i, person1] of section.persons.entries()) {
+                        for (let [j, person2] of section.persons.entries()) {
+                            if (i > j && person1.rect.intersects(person2.rect)) {
+                                let intersect = person1.rect['intersect'](person2.rect);
+                                intersect.opacity = 0.3;
+                                intersect.fillColor = 'orange';
+                                person1.intersects.push(intersect);
+                                if (sick_ids.has(person1.id) || sick_ids.has(person2.id)) {
+                                    sickness_dict[person1.id] += 1;
+                                    sickness_dict[person2.id] += 1;
+                                    if (sickness_dict[person1.id] > lim) sick_ids.add(person1.id);
+                                    if (sickness_dict[person2.id] > lim) sick_ids.add(person2.id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        html, body {
+            margin: 0;
+            width: calc(1.25 * 100vh);
+            height: 100vh;
+        }
+
+        #back-video {
+            position: absolute;
+            width: 100%;
+            display: none;
+        }
+
+        #main-box {
+            position: relative;
+            width: 50.75%;
+
+            height: 39vw;
+            box-sizing: border-box;
+        }
+
+        #content {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .cam-display {
+            position: relative;
+            width: 100%;
+            height: 50%;
+        }
+
+        .right-box {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            right: 0;
+            top: 0;
+        }
+
+        .video, .over {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+        }
+
+        .video {
+            z-index: 0;
+        }
+
+        .over {
+            z-index: 1;
+        }
+
+        .select {
+            width: 100%;
+            height: 100%;
+        }
+
+        #secret-button {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+        }
+
+        #temp-canvas {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            top: 0;
+            visibility: hidden;
+        }
+    </style>
+    <script type="text/javascript">
+        function secret() {
+            document.getElementById('content').style = 'margin: 8.6% 28.7% 0 20.6%';
+            document.getElementById('back-video').style = 'display: block';
+        }
+
+        var data_boxes = {{ data_boxes }};
+        var data_clusters = {{ data_clusters }};
+        var color_cycle = ['yellow', 'blue', 'cyan', 'blue', 'black', 'pink'];
+        var lim = 150;
+    </script>
+</head>
+<body>
+<video autoplay muted loop id="back-video">
+    <source src="{% static 'back.mp4' %}" type="video/mp4">
+</video>
+
+<div id="content">
+    <div class="cam-display">
+        <video autoplay muted loop class="video">
+            <source src="/stream/?n=0" type="video/mp4">
+        </video>
+        <canvas class="over"></canvas>
+        <div class="right-box">
+            <canvas class="select"></canvas>
+        </div>
+    </div>
+
+    <div class="cam-display">
+        <video autoplay muted loop class="video">
+            <source src="/stream/?n=1" type="video/mp4">
+        </video>
+        <canvas class="over"></canvas>
+        <div class="right-box">
+            <canvas class="select"></canvas>
+        </div>
+    </div>
+
+    <canvas id="temp-canvas"></canvas>
+</div>
+
+
+<button id="secret-button" onclick="secret()">SECRET BUTTON</button>
+</body>
+</html>
