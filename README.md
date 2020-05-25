@@ -1,7 +1,7 @@
 # REIDCoronaHackathon
-[preview](preview.png)
+![preview](preview.png)
 
-A web interface for prolonged interaction detection.
+A web interface for detection of prolonged interactions.
 ## Tech Stack:
 * [torchereid](https://github.com/KaiyangZhou/deep-person-reid)
 * [Faster R-CNN](https://github.com/jwyang/faster-rcnn.pytorch)
