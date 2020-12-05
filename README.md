@@ -3,6 +3,8 @@
 
 A web interface for detection of prolonged interactions.
 
+## [Demo video](https://www.youtube.com/watch?v=nv4rgsmGKDw)
+
 ## Cool features
 * Octet-stream video
 
@@ -11,8 +13,6 @@ A web interface for detection of prolonged interactions.
 * [Faster R-CNN](https://github.com/jwyang/faster-rcnn.pytorch)
 * Django
 * [paper.js](http://paperjs.org/)
-
-## [Demo video](https://www.youtube.com/watch?v=nv4rgsmGKDw)
 
 ## Presentation (Ukrainian)
 * [Interactive version](https://prezi.com/p/xarcs2qkqipt)
