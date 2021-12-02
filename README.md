@@ -1,4 +1,4 @@
-# REIDCoronaHackathon
+# REID Corona Hackathon
 ![preview](preview.png)
 
 A web interface for detection of prolonged interactions.
